@@ -1,9 +1,8 @@
 import os
-import markdown
+import json
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
-import yaml
 
 class BlogGenerator:
     def __init__(self, posts_dir='posts', output_dir='public'):
@@ -12,23 +11,15 @@ class BlogGenerator:
         self.posts = []
         
     def parse_post(self, filename):
-        """Parse a blog post file with YAML frontmatter and markdown content."""
+        """Parse a blog post file with JSON content."""
         with open(filename, 'r', encoding='utf-8') as f:
-            content = f.read()
-            
-        # Split YAML frontmatter from markdown content
-        parts = content.split('---\n')
-        if len(parts) >= 3:
-            frontmatter = yaml.safe_load(parts[1])
-            markdown_content = parts[2]
-        else:
-            raise ValueError(f"Invalid post format in {filename}")
+            content = json.load(f)
             
         return {
-            'title': frontmatter['title'],
-            'date': frontmatter['date'],
-            'description': frontmatter.get('description', ''),
-            'content': markdown.markdown(markdown_content),
+            'title': content['title'],
+            'date': datetime.strptime(content['date'], '%Y-%m-%d'),
+            'description': content.get('description', ''),
+            'content': content['content'],
             'slug': Path(filename).stem
         }
         
@@ -39,14 +30,14 @@ class BlogGenerator:
         
         # Add channel metadata
         ET.SubElement(channel, 'title').text = 'My Blog'
-        ET.SubElement(channel, 'link').text = 'https://yourblog.com'
+        ET.SubElement(channel, 'link').text = 'https://amuybar.github.io/usikusaccoblogs'
         ET.SubElement(channel, 'description').text = 'My Personal Blog'
         
         # Add items for each post
         for post in sorted(self.posts, key=lambda x: x['date'], reverse=True):
             item = ET.SubElement(channel, 'item')
             ET.SubElement(item, 'title').text = post['title']
-            ET.SubElement(item, 'link').text = f"https://yourblog.com/posts/{post['slug']}.html"
+            ET.SubElement(item, 'link').text = f"https://amuybar.github.io/usikusaccoblogs/posts/{post['slug']}.html"
             ET.SubElement(item, 'description').text = post['description']
             ET.SubElement(item, 'pubDate').text = post['date'].strftime('%a, %d %b %Y %H:%M:%S %z')
             
@@ -84,7 +75,8 @@ class BlogGenerator:
         """Generate main index page with list of posts."""
         with open('templates/index.html', 'r') as f:
             template = f.read()
-            
+        
+        # Create the posts HTML
         posts_html = ''
         for post in sorted(self.posts, key=lambda x: x['date'], reverse=True):
             posts_html += f"""
@@ -94,7 +86,8 @@ class BlogGenerator:
                 <p>{post['description']}</p>
             </article>
             """
-            
+        
+        # Format the template with the posts HTML
         html = template.format(posts=posts_html)
         
         with open(f'{self.output_dir}/index.html', 'w') as f:
@@ -103,7 +96,7 @@ class BlogGenerator:
     def build(self):
         """Build the entire blog."""
         # Load all posts
-        for filename in Path(self.posts_dir).glob('*.md'):
+        for filename in Path(self.posts_dir).glob('*.json'):
             self.posts.append(self.parse_post(filename))
             
         # Generate RSS and HTML
