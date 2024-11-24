@@ -1,37 +1,45 @@
-# .github/workflows/build-blog.yml
-name: Build Blog
+name: Deploy to GitHub Pages
 
 on:
   push:
     branches:
-      - main
-    paths:
-      - 'posts/**'
-      - 'templates/**'
-      - 'public/**'
+      - main  # or whichever branch you're using for deployment
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v2
-    
+    - name: Checkout code
+      uses: actions/checkout@v2
+
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
         python-version: '3.x'
-    
+
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install markdown pyyaml
-    
-    - name: Build blog
-      run: python blog_generator.py
-    
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./public
+        pip install -r requirements.txt
+
+    - name: Build the site
+      run: |
+        python blog_generator.py
+
+    - name: Configure Git
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Commit changes
+      run: |
+        git add -A
+        git commit -m "Deploy updates to GitHub Pages"
+      continue-on-error: true  # Don't fail the job if no changes to commit
+
+    - name: Push to gh-pages
+      env:
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      run: |
+        git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/amuybar/usikusaccoblogs.git
+        git push origin gh-pages
